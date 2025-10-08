@@ -4,6 +4,8 @@ NextJS、TypeScript、Tailwind CSS、shadcn/uiを使用して作成したポケ�
 
 https://next-pokedex-vert.vercel.app/
 
+<img width="1528" height="540" alt="image" src="https://github.com/user-attachments/assets/e7dffd3d-5122-43ff-8fe4-eb7b7ba7dcf4" />
+
 ## 🚀 機能
 
 ### 主要機能
@@ -16,12 +18,6 @@ https://next-pokedex-vert.vercel.app/
 - No、名前（日本語優先）、分類、タイプ、高さ（m表記）、重さ（kg表記）、特性
 - 特性の説明（日本語優先、なければ「説明なし」）
 - 分類がない場合は「分類なし」と表示
-
-### 画像表示優先順位
-1. `other.official-artwork.front_default`
-2. `other.home.front_default`
-3. `sprites.front_default`
-4. フォールバック用のno_image.svg
 
 ## 🛠️ 技術スタック
 
@@ -51,20 +47,6 @@ npm run dev
 npm run build
 npm start
 ```
-
-## 📝 リファクタリング内容
-
-### 改善されたコード品質
-- ✅ **型安全性の向上**: `any`型を完全に除去し、厳密な型定義を実装
-- ✅ **日本語コメント**: すべての関数に分かりやすい日本語コメントを追加
-- ✅ **エラーハンドリング**: 存在しないポケモンのスキップ処理を追加
-- ✅ **関数分割**: 大きな関数を小さな責務別関数に分割
-- ✅ **定数管理**: タイプ翻訳テーブルを`TYPE_TRANSLATIONS`として定数化
-
-### コード構造の改善
-- **関数のグルーピング**: API関数、ヘルパー関数、メイン処理関数に整理
-- **ドキュメント**: JSDocによる詳細な関数説明
-- **エラーメッセージ**: 日本語による分かりやすいエラーメッセージ
 
 ## 📁 プロジェクト構成
 
