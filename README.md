@@ -2,6 +2,8 @@
 
 NextJS、TypeScript、Tailwind CSS、shadcn/uiを使用して作成したポケモン図鑑アプリです。
 
+https://next-pokedex-vert.vercel.app/
+
 ## 🚀 機能
 
 ### 主要機能
