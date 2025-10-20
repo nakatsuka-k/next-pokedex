@@ -9,7 +9,13 @@ import {
   PaginationInfo,
   Name,
   Genus,
-  EffectEntry
+  EffectEntry,
+  EvolutionChain,
+  EvolutionDetail,
+  ChainLink,
+  ProcessedChainLink,
+  ProcessedEvolutionDetail,
+  ProcessedEvolutionChain
 } from './types';
 
 const BASE_URL = 'https://pokeapi.co/api/v2';
@@ -74,6 +80,21 @@ export async function fetchType(idOrName: string | number): Promise<TypeDetail> 
   if (!response.ok) {
     throw new Error(`タイプ「${idOrName}」の取得に失敗しました`);
   }
+  return response.json();
+}
+
+/**
+ * 進化チェーンの詳細情報を取得する
+ * @param url - 進化チェーンのURL
+ * @returns 進化チェーンの詳細情報
+ */
+export async function fetchEvolutionChain(url: string): Promise<EvolutionChain> {
+  const response = await fetch(url);
+  
+  if (!response.ok) {
+    throw new Error(`進化チェーン情報の取得に失敗しました: ${response.status}`);
+  }
+  
   return response.json();
 }
 
@@ -144,13 +165,129 @@ export function getPokemonImageUrl(sprites: Pokemon['sprites']): string {
 }
 
 /**
- * URLからポケモンIDを抽出する
+ * URLからIDを抽出する
  * @param url - PokeAPIのURL
- * @returns ポケモンID
+ * @returns 抽出されたID
  */
 export function extractIdFromUrl(url: string): number {
   const matches = url.match(/\/(\d+)\/$/);
   return matches ? parseInt(matches[1], 10) : 0;
+}
+
+/**
+ * 進化トリガーの日本語変換テーブル
+ */
+const evolutionTriggerTranslations: Record<string, string> = {
+  'level-up': 'レベルアップ',
+  'trade': '通信交換',
+  'use-item': 'アイテム使用',
+  'shed': '空きスペース',
+  'spin': '回転',
+  'tower-of-darkness': '悪の塔',
+  'tower-of-waters': '水の塔',
+  'three-critical-hits': 'きゅうしょ3回',
+  'take-damage': 'ダメージを受ける',
+  'other': 'その他'
+};
+
+/**
+ * 進化条件を日本語で説明する
+ * @param detail - 進化詳細情報
+ * @returns 進化条件の説明
+ */
+function getEvolutionConditions(detail: EvolutionDetail): { conditions: string[], conditionsJapanese: string[] } {
+  const conditions: string[] = [];
+  const conditionsJapanese: string[] = [];
+
+  if (detail.min_level) {
+    conditions.push(`Level ${detail.min_level}`);
+    conditionsJapanese.push(`レベル${detail.min_level}`);
+  }
+
+  if (detail.item) {
+    conditions.push(`Item: ${detail.item.name}`);
+    conditionsJapanese.push(`アイテム: ${detail.item.name}`);
+  }
+
+  if (detail.held_item) {
+    conditions.push(`Held item: ${detail.held_item.name}`);
+    conditionsJapanese.push(`持ち物: ${detail.held_item.name}`);
+  }
+
+  if (detail.known_move) {
+    conditions.push(`Known move: ${detail.known_move.name}`);
+    conditionsJapanese.push(`習得技: ${detail.known_move.name}`);
+  }
+
+  if (detail.location) {
+    conditions.push(`Location: ${detail.location.name}`);
+    conditionsJapanese.push(`場所: ${detail.location.name}`);
+  }
+
+  if (detail.min_happiness) {
+    conditions.push(`Happiness ${detail.min_happiness}+`);
+    conditionsJapanese.push(`なつき度${detail.min_happiness}以上`);
+  }
+
+  if (detail.time_of_day) {
+    conditions.push(`Time: ${detail.time_of_day}`);
+    conditionsJapanese.push(`時間帯: ${detail.time_of_day === 'day' ? '昼' : detail.time_of_day === 'night' ? '夜' : detail.time_of_day}`);
+  }
+
+  if (detail.gender !== null) {
+    const genderText = detail.gender === 1 ? 'Female' : 'Male';
+    const genderJapanese = detail.gender === 1 ? 'メス' : 'オス';
+    conditions.push(`Gender: ${genderText}`);
+    conditionsJapanese.push(`性別: ${genderJapanese}`);
+  }
+
+  if (detail.needs_overworld_rain) {
+    conditions.push('Rain required');
+    conditionsJapanese.push('雨が必要');
+  }
+
+  if (detail.turn_upside_down) {
+    conditions.push('Turn upside down');
+    conditionsJapanese.push('逆さまにする');
+  }
+
+  return { conditions, conditionsJapanese };
+}
+
+/**
+ * チェーンリンクを処理済みデータに変換する
+ * @param chainLink - 進化チェーンのリンク
+ * @returns 処理済みチェーンリンク
+ */
+async function processChainLink(chainLink: ChainLink): Promise<ProcessedChainLink> {
+  // ポケモンIDを取得
+  const pokemonId = extractIdFromUrl(chainLink.species.url);
+  
+  // ポケモンの詳細情報を取得
+  const pokemon = await getProcessedPokemon(pokemonId);
+
+  // 進化詳細を処理
+  const evolutionDetails: ProcessedEvolutionDetail[] = chainLink.evolution_details.map(detail => {
+    const { conditions, conditionsJapanese } = getEvolutionConditions(detail);
+    
+    return {
+      trigger: detail.trigger.name,
+      triggerJapanese: evolutionTriggerTranslations[detail.trigger.name] || detail.trigger.name,
+      conditions,
+      conditionsJapanese
+    };
+  });
+
+  // 次の進化を再帰的に処理
+  const evolvesTo: ProcessedChainLink[] = await Promise.all(
+    chainLink.evolves_to.map(nextLink => processChainLink(nextLink))
+  );
+
+  return {
+    pokemon,
+    evolutionDetails,
+    evolvesTo
+  };
 }
 
 // === タイプ名の日本語翻訳 ===
@@ -447,4 +584,34 @@ export async function getAdjacentPokemon(currentId: number): Promise<{
     prev: prevResult.status === 'fulfilled' ? prevResult.value : null,
     next: nextResult.status === 'fulfilled' ? nextResult.value : null
   };
+}
+
+/**
+ * ポケモンの進化系統を取得する
+ * @param pokemonId - ポケモンID
+ * @returns 処理済み進化系統データ
+ */
+export async function getEvolutionChain(pokemonId: number): Promise<ProcessedEvolutionChain> {
+  try {
+    // ポケモンの種族情報を取得して進化チェーンURLを取得
+    const species = await fetchPokemonSpecies(pokemonId);
+    
+    if (!species.evolution_chain?.url) {
+      throw new Error(`ポケモンID ${pokemonId} に進化チェーン情報がありません`);
+    }
+    
+    // 進化チェーンの詳細情報を取得
+    const evolutionChain = await fetchEvolutionChain(species.evolution_chain.url);
+    
+    // チェーンを処理済みデータに変換
+    const processedChain = await processChainLink(evolutionChain.chain);
+
+    return {
+      id: evolutionChain.id,
+      chain: processedChain
+    };
+  } catch (error) {
+    console.error(`ポケモンID ${pokemonId} の進化系統取得に失敗:`, error);
+    throw new Error(`進化系統の取得に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`);
+  }
 }

@@ -48,6 +48,39 @@ export default function Home() {
         </Card>
       </div>
 
+      {/* 機能紹介セクション */}
+      <div className="max-w-4xl mx-auto mt-16">
+        <h2 className="text-2xl font-bold text-center mb-8">主な機能</h2>
+        <div className="bg-white rounded-lg p-6 shadow-sm">
+          <ul className="space-y-3 text-gray-700">
+            <li className="flex items-center">
+              <span className="text-green-500 mr-3">✅</span>
+              ポケモン一覧表示（20体/ページ）
+            </li>
+            <li className="flex items-center">
+              <span className="text-green-500 mr-3">✅</span>
+              ポケモン名での検索機能（日本語・英語対応）
+            </li>
+            <li className="flex items-center">
+              <span className="text-green-500 mr-3">✅</span>
+              ポケモン詳細情報の表示
+            </li>
+            <li className="flex items-center">
+              <span className="text-green-500 mr-3">✅</span>
+              進化系統図の表示（進化条件付き）
+            </li>
+            <li className="flex items-center">
+              <span className="text-green-500 mr-3">✅</span>
+              前後のポケモンへのナビゲーション
+            </li>
+            <li className="flex items-center">
+              <span className="text-green-500 mr-3">✅</span>
+              レスポンシブデザイン対応
+            </li>
+          </ul>
+        </div>
+      </div>
+
       <div className="text-center mt-12">
         <p className="text-gray-500">
           このアプリは{' '}

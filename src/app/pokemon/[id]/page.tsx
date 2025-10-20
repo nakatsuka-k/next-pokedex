@@ -137,6 +137,27 @@ export default async function PokemonDetailPage({ params }: PageProps) {
                       ))}
                     </div>
                   </div>
+
+                  {/* 進化系統へのリンク */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">進化系統</h3>
+                    <Link href={`/evolution/${pokemon.id}`}>
+                      <Button variant="outline" className="w-full">
+                        進化系統を見る
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+              
+              {/* 進化系統へのリンク */}
+              <div className="mt-6 pt-6 border-t">
+                <div className="flex justify-center">
+                  <Button asChild>
+                    <Link href={`/evolution/${pokemon.id}`}>
+                      進化系統を見る
+                    </Link>
+                  </Button>
                 </div>
               </div>
             </CardContent>
