@@ -14,6 +14,9 @@ import {
 
 const BASE_URL = 'https://pokeapi.co/api/v2';
 
+// ポケモン種族の総数をキャッシュ
+let pokemonSpeciesCount: number | null = null;
+
 // === 基本的なAPI関数群 ===
 
 /**
@@ -27,6 +30,36 @@ export async function fetchPokemonList(limit: number = 20, offset: number = 0): 
     throw new Error('ポケモン一覧の取得に失敗しました');
   }
   return response.json();
+}
+
+/**
+ * ポケモン種族一覧を取得する（総数取得用）
+ * @param limit - 取得する件数（0の場合は総数のみ取得）
+ * @param offset - オフセット（スキップする件数）
+ */
+export async function fetchPokemonSpeciesList(limit: number = 0, offset: number = 0): Promise<PokemonListResponse> {
+  const response = await fetch(`${BASE_URL}/pokemon-species/?limit=${limit}&offset=${offset}`);
+  if (!response.ok) {
+    throw new Error('ポケモン種族一覧の取得に失敗しました');
+  }
+  return response.json();
+}
+
+/**
+ * ポケモン種族の総数を取得する（キャッシュ機能付き）
+ * @returns ポケモン種族の総数
+ */
+export async function getPokemonSpeciesCount(): Promise<number> {
+  if (pokemonSpeciesCount !== null) {
+    return pokemonSpeciesCount;
+  }
+
+  console.log('Fetching Pokemon Species count...');
+  const response = await fetchPokemonSpeciesList(0, 0);
+  pokemonSpeciesCount = response.count;
+  console.log(`Pokemon Species count: ${pokemonSpeciesCount}`);
+  
+  return pokemonSpeciesCount;
 }
 
 /**
@@ -279,7 +312,15 @@ export async function getProcessedPokemonList(
   pagination: PaginationInfo;
 }> {
   const offset = (page - 1) * limit;
-  const listResponse = await fetchPokemonList(limit, offset);
+  
+  // ポケモン一覧とポケモン種族総数を並列で取得
+  const [listResponse, speciesCount] = await Promise.all([
+    fetchPokemonList(limit, offset),
+    getPokemonSpeciesCount()
+  ]);
+
+  console.log('Fetched Pokemon List Response:', listResponse);
+  console.log('Species Count:', speciesCount);
 
   // 各ポケモンの詳細情報を並列で取得
   const pokemonPromises = listResponse.results.map(async (pokemonListItem) => {
@@ -289,8 +330,8 @@ export async function getProcessedPokemonList(
 
   const pokemonList = await Promise.all(pokemonPromises);
 
-  // ページネーション情報を計算
-  const totalPages = Math.ceil(listResponse.count / limit);
+  // ポケモン種族の総数を使ってページネーション情報を計算
+  const totalPages = Math.ceil(speciesCount / limit);
 
   return {
     pokemon: pokemonList,

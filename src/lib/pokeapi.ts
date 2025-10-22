@@ -20,6 +20,9 @@ import {
 
 const BASE_URL = 'https://pokeapi.co/api/v2';
 
+// ポケモン種族の総数をキャッシュ
+let pokemonSpeciesCount: number | null = null;
+
 // === 基本的なAPI関数群 ===
 
 /**
@@ -33,6 +36,36 @@ export async function fetchPokemonList(limit: number = 20, offset: number = 0): 
     throw new Error('ポケモン一覧の取得に失敗しました');
   }
   return response.json();
+}
+
+/**
+ * ポケモン種族一覧を取得する（総数取得用）
+ * @param limit - 取得する件数（0の場合は総数のみ取得）
+ * @param offset - オフセット（スキップする件数）
+ */
+export async function fetchPokemonSpeciesList(limit: number = 0, offset: number = 0): Promise<PokemonListResponse> {
+  const response = await fetch(`${BASE_URL}/pokemon-species/?limit=${limit}&offset=${offset}`);
+  if (!response.ok) {
+    throw new Error('ポケモン種族一覧の取得に失敗しました');
+  }
+  return response.json();
+}
+
+/**
+ * ポケモン種族の総数を取得する（キャッシュ機能付き）
+ * @returns ポケモン種族の総数
+ */
+export async function getPokemonSpeciesCount(): Promise<number> {
+  if (pokemonSpeciesCount !== null) {
+    return pokemonSpeciesCount;
+  }
+
+  console.log('Fetching Pokemon Species count...');
+  const response = await fetchPokemonSpeciesList(0, 0);
+  pokemonSpeciesCount = response.count;
+  console.log(`Pokemon Species count: ${pokemonSpeciesCount}`);
+  
+  return pokemonSpeciesCount;
 }
 
 /**
@@ -415,54 +448,23 @@ export async function getProcessedPokemonList(
   pokemon: ProcessedPokemon[];
   pagination: PaginationInfo;
 }> {
-  // 安全なポケモン数の上限を設定（第1世代〜第9世代までの実在ポケモン）
-  const SAFE_POKEMON_LIMIT = 1010; // 実際に存在する最新のポケモン数
+  console.log(`getProcessedPokemonList called with page=${page}, limit=${limit}`);
   
   const offset = (page - 1) * limit;
   
-  // ページ範囲の検証
-  const maxSafePage = Math.ceil(SAFE_POKEMON_LIMIT / limit);
-  if (page > maxSafePage) {
-    // 存在しないページの場合は空の結果を返す
-    return {
-      pokemon: [],
-      pagination: {
-        currentPage: page,
-        totalPages: maxSafePage,
-        hasNext: false,
-        hasPrev: page > 1
-      }
-    };
-  }
+  // ポケモン一覧とポケモン種族総数を並列で取得
+  const [listResponse, speciesCount] = await Promise.all([
+    fetchPokemonList(limit, offset),
+    getPokemonSpeciesCount()
+  ]);
 
-  // 安全な範囲内での取得件数を計算
-  const safeLimit = Math.min(limit, SAFE_POKEMON_LIMIT - offset);
-  if (safeLimit <= 0) {
-    // オフセットが安全範囲を超えている場合
-    return {
-      pokemon: [],
-      pagination: {
-        currentPage: page,
-        totalPages: maxSafePage,
-        hasNext: false,
-        hasPrev: page > 1
-      }
-    };
-  }
+  console.log('Fetched Pokemon List Response:', listResponse);
+  console.log('Species Count:', speciesCount);
 
-  const listResponse = await fetchPokemonList(safeLimit, offset);
-
-  // 各ポケモンの詳細情報を並列で取得（エラー時はnullになる）
+  // 各ポケモンの詳細情報を並列で取得
   const pokemonPromises = listResponse.results.map(async (pokemonListItem) => {
     try {
       const id = extractIdFromUrl(pokemonListItem.url);
-      
-      // IDが安全範囲内かチェック
-      if (id > SAFE_POKEMON_LIMIT) {
-        console.warn(`ポケモンID ${id} は安全範囲を超えているためスキップします`);
-        return null;
-      }
-      
       return await getProcessedPokemon(id);
     } catch (error) {
       console.error(`ポケモン「${pokemonListItem.name}」の処理をスキップ:`, error);
@@ -474,16 +476,16 @@ export async function getProcessedPokemonList(
   // nullを除外してProcessedPokemonのみ残す
   const pokemonList = pokemonResults.filter((pokemon): pokemon is ProcessedPokemon => pokemon !== null);
 
-  // 安全な範囲でのページネーション情報を計算
-  const totalPages = Math.min(Math.ceil(listResponse.count / limit), maxSafePage);
+  // ポケモン種族の総数を使ってページネーション情報を計算
+  const totalPages = Math.ceil(speciesCount / limit);
 
   return {
     pokemon: pokemonList,
     pagination: {
       currentPage: page,
       totalPages,
-      hasNext: page < totalPages,
-      hasPrev: page > 1
+      hasNext: !!listResponse.next,
+      hasPrev: !!listResponse.previous
     }
   };
 }
